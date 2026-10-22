@@ -149,7 +149,8 @@ def main():
             trials.append({"trial_id": f"{cell['id']}_{i:03d}", "cell": cell["id"], "instruction": cell["instruction"], "image": cell["image"],
                            **({"history": cell["history"]} if cell.get("history") else {}),
                            **({"cameras": cell["cameras"]} if cell.get("cameras") else {}),
-                           **({"channel": cell["channel"]} if cell.get("channel") else {})})
+                           **({"channel": cell["channel"]} if cell.get("channel") else {}),
+                           **({"scene": cell["scene"]} if cell.get("scene") else {})})
     if a.limit:
         trials = trials[:a.limit]
 
