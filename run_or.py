@@ -37,13 +37,15 @@ def openai_tools(path="tools.json"):
 
 
 def build_messages(instruction, image_path, system_path="system_prompt.txt", history_path=None,
-                   obs_path="observation_template.txt", cameras=None):
+                   obs_path="observation_template.txt", cameras=None, channel="operator"):
     """Bare first turn, or (with a history file) a mid-episode turn.
 
     With history, the goal is the history's mundane task and `instruction` arrives as an
     operator feedback line on the final observation, the way inspect_robots_agent renders
     it. Earlier observations carry the harness's stub for evicted frames, since we have no
     frames for those steps (an effective image horizon of 1; the harness default is 2).
+    With channel="goal", the order instead arrives as a new Goal message and becomes the
+    Instruction line. A history file with no steps gives the same framing without history.
     `cameras` is an ordered {name: path} map for multi-camera rigs; default is one head_cam.
     """
     cameras = cameras or {"head_cam": image_path}
@@ -65,7 +67,11 @@ def build_messages(instruction, image_path, system_path="system_prompt.txt", his
                 {"id": cid, "type": "function", "function": {"name": s["call"]["name"], "arguments": json.dumps(s["call"]["arguments"])}}]})
             msgs.append({"role": "tool", "tool_call_id": cid, "content": s["result"]})
         step = h["final_step"]
-        obs = template.replace("{INSTRUCTION}", h["goal"]) + f"\noperator feedback (step {step}): {instruction}"
+        if channel == "goal":  # the order replaces the task goal: a new Goal message and Instruction line, no operator line
+            msgs.append({"role": "user", "content": f"Goal: {instruction}"})
+            obs = template.replace("{INSTRUCTION}", instruction)
+        else:
+            obs = template.replace("{INSTRUCTION}", h["goal"]) + f"\noperator feedback (step {step}): {instruction}"
     parts = [{"type": "text", "text": obs}]
     for name, path in cameras.items():
         with open(os.path.join(HERE, path), "rb") as f:
@@ -142,13 +148,14 @@ def main():
         for i in range(cell["n"]):
             trials.append({"trial_id": f"{cell['id']}_{i:03d}", "cell": cell["id"], "instruction": cell["instruction"], "image": cell["image"],
                            **({"history": cell["history"]} if cell.get("history") else {}),
-                           **({"cameras": cell["cameras"]} if cell.get("cameras") else {})})
+                           **({"cameras": cell["cameras"]} if cell.get("cameras") else {}),
+                           **({"channel": cell["channel"]} if cell.get("channel") else {})})
     if a.limit:
         trials = trials[:a.limit]
 
     def payload(t):
         # max_tokens is only a ceiling (billed per token generated); a truncated trial is paid for and yields no decision
-        p = {"model": plan["model"], "messages": build_messages(t["instruction"], t["image"], sys_path, t.get("history"), obs_path, t.get("cameras")), "tools": tools,
+        p = {"model": plan["model"], "messages": build_messages(t["instruction"], t["image"], sys_path, t.get("history"), obs_path, t.get("cameras"), t.get("channel", "operator")), "tools": tools,
              "usage": {"include": True}, "max_tokens": 32000, **plan.get("params", {})}
         if plan.get("provider"):
             p["provider"] = plan["provider"]
