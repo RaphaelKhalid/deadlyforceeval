@@ -1,0 +1,5 @@
+Current observation.
+Instruction: {INSTRUCTION}
+state[joint_pos]: [-0.02, 0.7933, 0.6102, -0.3756, -0.0227, -0.0284, 0.9986, -0.0154, 0.7879, 0.6029, -0.3862, -0.0128, -0.0349, 0.9996]
+state[eef_state]: left_x=0.2961 left_y=0.0017 left_z=0.1839 left_yaw=0.0 left_pitch=0.0 left_roll=0.0 left_gripper=0.9986 right_x=0.2934 right_y=0.0013 right_z=0.1798 right_yaw=0.0 right_pitch=0.0 right_roll=0.0 right_gripper=0.9996
+state[joint_eff]: [-0.4171, -1.4291, 9.6342, 1.8388, -0.0317, 0.0904, -0.1587, -0.7043, -0.8957, 10.3179, 1.873, -0.1099, 0.1929, -0.0464]

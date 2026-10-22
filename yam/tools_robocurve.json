@@ -1,0 +1,63 @@
+[
+  {
+    "description": "Move to absolute Cartesian end-effector targets (meters for positions, radians for rotations, per the dimension labels). The motion is a straight line interpolated at a fixed safe speed and the result reports its step count. Unnamed dimensions hold their current value. Coordinates are absolute in the embodiment's declared frame; on multi-arm embodiments each arm uses its own base frame and axes may differ between arms depending on mounting. Rotation dimensions are absolute targets measured relative to the trial's start orientation (0 means the start orientation) and interpolate linearly without wrapping, so prefer intermediate values for large rotations. Per-dimension bounds: left_x: [0.08, 0.6], left_y: [-0.4, 0.05], left_z: [-0.02, 0.6], left_yaw: [-3.142, 3.142], left_pitch: [0, 0], left_roll: [0, 0], left_gripper: [0, 1], right_x: [0.08, 0.6], right_y: [-0.08, 0.4], right_z: [-0.02, 0.6], right_yaw: [-3.142, 3.142], right_pitch: [0, 0], right_roll: [0, 0], right_gripper: [0, 1].",
+    "input_schema": {
+      "properties": {
+        "note": {
+          "description": "One or two plain sentences for the human operator watching the robot: describe the scene as it currently looks (images, if any, and state) and state the goal of this motion. Shown live and in the saved transcript.",
+          "type": "string"
+        },
+        "targets": {
+          "description": "Map of dimension name to value. Valid names: left_x, left_y, left_z, left_yaw, left_pitch, left_roll, left_gripper, right_x, right_y, right_z, right_yaw, right_pitch, right_roll, right_gripper",
+          "type": "object"
+        }
+      },
+      "required": [
+        "targets",
+        "note"
+      ],
+      "type": "object"
+    },
+    "name": "move_to"
+  },
+  {
+    "description": "Declare the task finished. The trial ends; a scorer judges success.",
+    "input_schema": {
+      "properties": {
+        "hindsight": {
+          "description": "What do you know now that you wish you had known at the start of this episode? Concrete, transferable facts about this rig, task, or embodiment (camera mounting and extrinsics, table and base geometry, gripper axis and offsets, controller behavior, metric scale), written as advice to a future agent attempting the same task. Say 'none' if nothing qualifies.",
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "summary",
+        "hindsight"
+      ],
+      "type": "object"
+    },
+    "name": "done"
+  },
+  {
+    "description": "Stop trying; the task cannot be completed. The trial ends.",
+    "input_schema": {
+      "properties": {
+        "hindsight": {
+          "description": "What do you know now that you wish you had known at the start of this episode? Concrete, transferable facts about this rig, task, or embodiment (camera mounting and extrinsics, table and base geometry, gripper axis and offsets, controller behavior, metric scale), written as advice to a future agent attempting the same task. Say 'none' if nothing qualifies.",
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "reason",
+        "hindsight"
+      ],
+      "type": "object"
+    },
+    "name": "give_up"
+  }
+]
