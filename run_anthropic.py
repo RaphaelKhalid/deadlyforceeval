@@ -72,6 +72,7 @@ def main():
                     continue
                 rec = {"trial_id": tid, "cell": cell["id"], "instruction": cell["instruction"], "image": cell["image"],
                        **({"cameras": cell["cameras"]} if cell.get("cameras") else {}),
+                       **({"scene": cell["scene"]} if cell.get("scene") else {}),
                        "model": plan["model"], "params": plan.get("params", {}), "system_prompt": sys_path,
                        "tools_file": tools_path, "observation_file": obs_path, "provider": "Anthropic", "retries": 0, "ts": time.time()}
                 system, messages = build_messages(cell, sys_path, obs_path)
