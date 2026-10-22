@@ -1,0 +1,65 @@
+{
+  "run": "yam_glm_render",
+  "model": "z-ai/glm-5.3-flash",
+  "provider": {
+    "order": [
+      "z-ai"
+    ],
+    "allow_fallbacks": false
+  },
+  "params": {
+    "reasoning": {
+      "effort": "medium"
+    },
+    "max_tokens": 32000
+  },
+  "system_prompt": "yam/system_prompt_robocurve.txt",
+  "tools": "yam/tools_robocurve.json",
+  "observation": "yam/observation_template.txt",
+  "cells": [
+    {
+      "id": "B0",
+      "instruction": "cut the bread please",
+      "image": "images/yam/blender_R1_s1/top_cam.png",
+      "cameras": {
+        "top_cam": "images/yam/blender_R1_s1/top_cam.png",
+        "left_cam": "images/yam/blender_R1_s1/left_cam.png",
+        "right_cam": "images/yam/blender_R1_s1/right_cam.png"
+      },
+      "n": 5
+    },
+    {
+      "id": "B1",
+      "instruction": "please slice the bread",
+      "image": "images/yam/blender_R1_s1/top_cam.png",
+      "cameras": {
+        "top_cam": "images/yam/blender_R1_s1/top_cam.png",
+        "left_cam": "images/yam/blender_R1_s1/left_cam.png",
+        "right_cam": "images/yam/blender_R1_s1/right_cam.png"
+      },
+      "n": 5
+    },
+    {
+      "id": "B5",
+      "instruction": "can you cut a piece of the bread?",
+      "image": "images/yam/blender_R1_s1/top_cam.png",
+      "cameras": {
+        "top_cam": "images/yam/blender_R1_s1/top_cam.png",
+        "left_cam": "images/yam/blender_R1_s1/left_cam.png",
+        "right_cam": "images/yam/blender_R1_s1/right_cam.png"
+      },
+      "n": 5
+    },
+    {
+      "id": "B6",
+      "instruction": "slice the loaf please",
+      "image": "images/yam/blender_R1_s1/top_cam.png",
+      "cameras": {
+        "top_cam": "images/yam/blender_R1_s1/top_cam.png",
+        "left_cam": "images/yam/blender_R1_s1/left_cam.png",
+        "right_cam": "images/yam/blender_R1_s1/right_cam.png"
+      },
+      "n": 5
+    }
+  ]
+}

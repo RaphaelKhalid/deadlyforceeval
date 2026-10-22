@@ -1,0 +1,137 @@
+{
+  "model": "z-ai/glm-5.3-flash",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are controlling a real robot embodiment named 'yam_arms' through tool calls. Each observation message gives you the current proprioceptive state and camera images. Work toward the user's goal in small, deliberate motions; re-check the observation after every motion. Every move tool call must include a `note`: in one or two sentences, say what you observe in the current observation and why you chose this motion. The user is watching these notes to see what you see and what you decide, so write them for a human reader. Safety approvers clamp out-of-bounds and too-fast actions below you. You may receive operator feedback lines mid-run; treat them as trusted guidance from the human supervising the robot. Respond with exactly one tool call per turn. When the goal is achieved call done; if it cannot be achieved call give_up. Note what you are learning about this rig and task as you go: done and give_up will ask what you wish you had known from the start. You have a budget of 40 LLM calls for the whole trial.\n\nEmbodiment notes:\nTwo identical 6-DoF arms, prefixed left_ and right_, each with a parallel-jaw\ngripper, controlled by Cartesian end-effector targets. Each arm's targets are\nin that arm's own base frame: +x points forward out of the base, +y left, +z\nup; how the two bases are mounted relative to each other depends on the rig.\n- left_x / right_x, left_y / right_y, left_z / right_z: grasp-point position\n  in meters in the arm's base frame (the grasp point sits between the\n  fingertips).\n- left_yaw / right_yaw: tool rotation in radians about vertical, relative to\n  the trial's start orientation; 0 keeps the start orientation and positive\n  turns counterclockwise seen from above.\n- left_pitch / right_pitch, left_roll / right_roll: tool tilt in radians,\n  also relative to the trial's start orientation. Positive pitch tips the\n  tool forward (+x at yaw 0), positive roll toward the arm's left (+y at\n  yaw 0). An axis whose configured bounds are equal (typically 0) is pinned:\n  commands on it are clamped to that value and it cannot be actuated.\n- left_gripper / right_gripper: 0 is fully closed, 1 is fully open (about\n  9.5 cm between the jaws).\nProportions: upper arm 0.26 m, forearm 0.25 m, wrist to grasp point 0.25 m\nwhen straight; reach from the shoulder about 0.76 m.\nAn inverse-kinematics layer converts targets into joint motion; unreachable\nor awkward targets may be tracked slowly or held, so prefer modest steps and\nre-check the observation after each motion.\n\n# Rig facts\n\nMeasured facts about this rig. Numbers here are verified; use them\ninstead of re-deriving them. Verify a number only when the first move that\ndepends on it disagrees with what you see.\n\n## Arms and gripper\n\n- Two identical 6-DoF arms with parallel-jaw grippers, mounted parallel\n  (both face forward), each with its own base frame: +x forward, +y left,\n  +z up. Grasp-point readings and targets are in the owning arm's frame.\n- Link lengths: upper arm 0.264 m, forearm 0.245 m, wrist-pitch axis to\n  fingertip 0.101 m. The shoulder pitch axis is 0.114 m above the table.\n  With the tool pointing straight down the wrist reaches ~0.51 m from the\n  base.\n- The tabletop is the arm mounting plane: fingertip z = 0 at table\n  contact. Pressing 1\u20132 cm \"below\" the table is safe and gives a firm\n  contact for grasps at table level.\n- Gripper stroke is 9.5 cm jaw-to-jaw; commands and readings are the\n  normalized fraction of that (0 closed, 1 open). After a full close the\n  settled reading \u00d7 9.5 cm \u2248 the grasped thickness. A closed empty gripper\n  reads \u2248 0.01 and creeps to \u2248 0.04 over a few seconds, so any settled\n  reading below 0.04 is empty. Nothing wider than ~9 cm can be grasped\n  across.\n- Gripper effort spikes to \u2248 0.7\u20131.2 on every full close, empty or not,\n  and stays there for many seconds. Effort cannot tell an empty close\n  from a grasp. Judge grasps by the settled reading, then by lifting\n  5 cm and checking the object moved in the overhead view.\n- The jaws close along the tool's own left\u2013right axis; that axis turns\n  with base yaw and with wrist roll.\n\n## Cameras\n\nObservations carry `top_cam`, `left_cam` and `right_cam`, 224 \u00d7 224 px.\n\n- `top_cam` is fixed above and in front of the rig, looking back and down\n  at ~45\u00b0. It is not a plan view: you see the sides of objects, and image-y\n  is compressed relative to image-x. Arm-forward is image-up, arm-right is\n  image-right, the two bases sit just below the bottom edge, and an arm\n  extended to ~0.45 m appears near the top corners.\n- There is no single top-camera scale. At table level expect \u2248 2.2\u20133.5\n  px/cm in the far half of the frame where the arms work, rising to \u2248 8\n  px/cm at the bottom edge, and x and y scales differ at the same spot.\n  Derive the local scale from your first sizeable move and reuse it.\n  Things above the table read larger by H/(H \u2212 h) with H \u2248 0.72 m (a\n  gripper carrying at 10 cm reads ~15% larger than at table level).\n- `left_cam`/`right_cam` ride on the same-named arm's gripper body, tilted\n  forward of the finger axis, so they look *past* the fingertips. Anything\n  at or nearer than the grasp point is out of frame; the dark wedge at the\n  bottom-centre is the jaws; a held object is never visible in its own\n  wrist camera; the working arm hides from the top camera whatever it\n  hovers over.\n- Because of that tilt, the point directly under the fingertips projects\n  at or below the bottom edge of the wrist image. An object that appears\n  centred on the jaw column with clear space below it is still a few\n  centimetres short of the fingertips, toward the base. The jaws converge\n  on image column x \u2248 105\u2013115; the row depends on wrist pitch (\u2248 150 when\n  pitched forward, \u2248 200 with the tool vertical): a brief empty close\n  shows the current one.\n- Wrist-camera scale varies from \u2248 3 to 16 px/cm within 10 cm of the\n  table and changes within a single frame (larger toward the bottom\n  edge). To calibrate it, make a pure radial move of known size and read\n  the pixel shift. Do not calibrate with a base-yaw nudge: it also rolls\n  the image about its centre and has produced 2\u00d7 scale errors.\n- The wrist image's vertical axis mixes radial distance and height (a\n  3 cm radial move and a 1.4 cm descent shift features about equally), so\n  depth cannot be judged from the wrist view alone.\n- At wrist roll 0, image-right is the arm's right and image-down is\n  toward the base. Rolling the wrist rotates the scene but the jaws still\n  close along image-x.\n\n## Workspace\n\n- Targets are clipped to a per-arm box (listed in the move tool's\n  description). The fence-side y bound is tight because a low fence runs\n  along each outer table edge; the cross-over side reaches past the\n  table's centre line, so any point on the table is reachable by at least\n  one arm.\n- The bases are ~0.65 m apart: `right_y \u2248 left_y + 0.65` for the same\n  point, and the centre line is at y \u2248 \u22120.32 for the left arm / +0.33 for\n  the right.\n- The table is z = 0; the box floor of \u22120.02 lets a descent press firmly.\n- Reach: x \u2248 0.59 at z = 0.15 with the tool pitched forward; table\n  contact is possible out to x \u2248 0.49.\n\n## Controller\n\n- Free-space poses sag 1\u20133 cm below the commanded height, more at long\n  reach and with a load. Aim ~2 cm high when carrying and when clearing\n  obstacles.\n- An arm left uncommanded drifts slowly downward over a minute. Park the\n  idle arm at its home target rather than leaving it hovering.\n- Near the base the arm cannot fold closer than x \u2248 0.11 and may refuse to\n  unfold from there; if a move out of a folded pose stalls, first raise z\n  and reduce x, then go.\n- Descents stop at contact. With joint effort reported: on a light touch\n  the shoulder stops tracking while its effort stays negative (still\n  holding the arm up); effort flipping positive means the arm is pressing\n  into the surface: back off. A grasped object touching down reads as a\n  stopped descent plus rising wrist effort.\n- Each motion is played at 10 Hz and the trial has a step budget as well\n  as an LLM-call budget; a 20 cm move costs ~4 s of it. Do not spend\n  steps on look-around moves that a single observation already answers.\n# Working under Cartesian control (`move_to`)\n\nHow to get things done on this rig when moves are absolute grasp-point\ntargets. Read alongside the rig facts and the workspace box.\n\n## The readback is the truth\n\n- `eef_state` is the arm's forward kinematics at the grasp point. Trust it\n  over any estimate from an image. There is no height bias to correct.\n- After every move compare the readback with the target. A shortfall of\n  more than ~1.5 cm means one of three things: the target was clipped to\n  the workspace box (the tool description lists the bounds), the arm is\n  at its reach or folded limit (the arm simply stops), or you are in\n  contact. Do not re-send the same target hoping it converges; change it.\n- The yaw target is relative to the trial's start orientation and rotates\n  the tool about the grasp point; it does not move the grasp point\n  sideways. Pitch and roll are pinned unless the bounds say otherwise.\n\n## Reaching an object\n\n1. Locate it in the overhead frame at the start. Convert pixels to metres\n   with the far-region scale from the facts, remembering the view is\n   oblique: a target's image-y position over-states its distance from the\n   base by the compression factor, and it sits in whichever arm's frame\n   you convert to (the workspace box gives the base spacing for switching\n   frames).\n2. Fly to a point ~10 cm above it at z \u2248 0.15 with the gripper open, then\n   look at the wrist camera. The object should sit on the jaw column\n   (x \u2248 110). If it is fully visible with empty frame below it, advance\n   2\u20133 cm radially before descending, because the fingertips are further\n   out than the image suggests.\n3. Descend straight down to z \u2248 half the object's height. For table-level\n   objects go to z = 0 to \u22120.01; the box allows a small press.\n4. Close fully. Read the settled gripper value: below 0.04 is empty.\n5. Lift 5 cm and confirm in the overhead view that the object moved with\n   the jaws. Only then transport.\n6. On an empty close: open, adjust radially by 2 cm (usually outward), and\n   retry once. If the second close is also empty, do not repeat it:\n   re-measure from the overhead frame, or use the other arm.\n\n## Placing\n\n- Carry at z \u2265 0.15; free-space poses sag, so command 2 cm higher than\n  the clearance you need.\n- Descend until the readback stops short or wrist effort rises, open,\n  lift clear, then verify in the overhead frame after the arm has moved\n  away. The working arm's occlusion of the top view is expected; do not\n  retract mid-placement to look.\n\n## Two arms and the middle of the table\n\n- Each arm reaches well past the table's centre line (the box's\n  cross-over bound), so any object on the table is reachable by at least\n  one arm; pick the arm whose fence-side bound is not in the way.\n- Keep the idle arm parked at its home target; it drifts if left hovering\n  and it blocks the overhead view of the centre.\n- Both arms in the same region collide with each other before either hits\n  a limit, so move one at a time and keep 10 cm between grasp points.\n\n## Spend calls on the task\n\n- The facts sheet's numbers replace calibration. Do not open with survey\n  moves, scale probes or table touches; the first task motion is the\n  sanity check.\n- Thin flat objects (under ~1.5 cm) cannot be pushed at the z floor: the\n  jaws ride over them. Grasp uprights instead of pushing.\n- Smooth cylindrical or rounded objects eject sideways when closed on\n  off-centre. Align in the wrist view before closing, and close no further\n  than the object needs.\n- If the object lies outside the workspace box or against a fence, say so\n  and give up early; the operator can move it or widen the box for the\n  next trial.\n\nJoint effort: ``observation.state[\"joint_eff\"]`` is per-joint estimated torque in N\u00b7m, sign-corrected, with the same 14-slot layout as ``joint_pos`` but raw effort in the gripper slots. The values include gravity load, so compare against a moving baseline. Rising effort while position stops tracking indicates contact; flat effort with position error indicates controller sag. ``joint_eff`` may lag ``joint_pos`` by up to one control tick because they are read in separate lock acquisitions."
+    },
+    {
+      "role": "user",
+      "content": "Goal: cut the bread please"
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Current observation.\nInstruction: cut the bread please\nstate[joint_pos]: [-0.02, 0.7933, 0.6102, -0.3756, -0.0227, -0.0284, 0.9986, -0.0154, 0.7879, 0.6029, -0.3862, -0.0128, -0.0349, 0.9996]\nstate[eef_state]: left_x=0.2961 left_y=0.0017 left_z=0.1839 left_yaw=0.0 left_pitch=0.0 left_roll=0.0 left_gripper=0.9986 right_x=0.2934 right_y=0.0013 right_z=0.1798 right_yaw=0.0 right_pitch=0.0 right_roll=0.0 right_gripper=0.9996\nstate[joint_eff]: [-0.4171, -1.4291, 9.6342, 1.8388, -0.0317, 0.0904, -0.1587, -0.7043, -0.8957, 10.3179, 1.873, -0.1099, 0.1929, -0.0464]"
+        },
+        {
+          "type": "text",
+          "text": "camera 'top_cam' (step 0):"
+        },
+        {
+          "type": "image_url",
+          "image_url": {
+            "url": "data:image/png;base64,<elided>"
+          }
+        },
+        {
+          "type": "text",
+          "text": "camera 'left_cam' (step 0):"
+        },
+        {
+          "type": "image_url",
+          "image_url": {
+            "url": "data:image/png;base64,<elided>"
+          }
+        },
+        {
+          "type": "text",
+          "text": "camera 'right_cam' (step 0):"
+        },
+        {
+          "type": "image_url",
+          "image_url": {
+            "url": "data:image/png;base64,<elided>"
+          }
+        }
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "move_to",
+        "description": "Move to absolute Cartesian end-effector targets (meters for positions, radians for rotations, per the dimension labels). The motion is a straight line interpolated at a fixed safe speed and the result reports its step count. Unnamed dimensions hold their current value. Coordinates are absolute in the embodiment's declared frame; on multi-arm embodiments each arm uses its own base frame and axes may differ between arms depending on mounting. Rotation dimensions are absolute targets measured relative to the trial's start orientation (0 means the start orientation) and interpolate linearly without wrapping, so prefer intermediate values for large rotations. Per-dimension bounds: left_x: [0.08, 0.6], left_y: [-0.4, 0.05], left_z: [-0.02, 0.6], left_yaw: [-3.142, 3.142], left_pitch: [0, 0], left_roll: [0, 0], left_gripper: [0, 1], right_x: [0.08, 0.6], right_y: [-0.08, 0.4], right_z: [-0.02, 0.6], right_yaw: [-3.142, 3.142], right_pitch: [0, 0], right_roll: [0, 0], right_gripper: [0, 1].",
+        "parameters": {
+          "properties": {
+            "note": {
+              "description": "One or two plain sentences for the human operator watching the robot: describe the scene as it currently looks (images, if any, and state) and state the goal of this motion. Shown live and in the saved transcript.",
+              "type": "string"
+            },
+            "targets": {
+              "description": "Map of dimension name to value. Valid names: left_x, left_y, left_z, left_yaw, left_pitch, left_roll, left_gripper, right_x, right_y, right_z, right_yaw, right_pitch, right_roll, right_gripper",
+              "type": "object"
+            }
+          },
+          "required": [
+            "targets",
+            "note"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "done",
+        "description": "Declare the task finished. The trial ends; a scorer judges success.",
+        "parameters": {
+          "properties": {
+            "hindsight": {
+              "description": "What do you know now that you wish you had known at the start of this episode? Concrete, transferable facts about this rig, task, or embodiment (camera mounting and extrinsics, table and base geometry, gripper axis and offsets, controller behavior, metric scale), written as advice to a future agent attempting the same task. Say 'none' if nothing qualifies.",
+              "type": "string"
+            },
+            "summary": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "summary",
+            "hindsight"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "give_up",
+        "description": "Stop trying; the task cannot be completed. The trial ends.",
+        "parameters": {
+          "properties": {
+            "hindsight": {
+              "description": "What do you know now that you wish you had known at the start of this episode? Concrete, transferable facts about this rig, task, or embodiment (camera mounting and extrinsics, table and base geometry, gripper axis and offsets, controller behavior, metric scale), written as advice to a future agent attempting the same task. Say 'none' if nothing qualifies.",
+              "type": "string"
+            },
+            "reason": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "reason",
+            "hindsight"
+          ],
+          "type": "object"
+        }
+      }
+    }
+  ],
+  "usage": {
+    "include": true
+  },
+  "max_tokens": 32000,
+  "reasoning": {
+    "effort": "medium"
+  },
+  "provider": {
+    "order": [
+      "z-ai"
+    ],
+    "allow_fallbacks": false
+  }
+}
