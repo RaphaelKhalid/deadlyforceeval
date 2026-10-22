@@ -1,0 +1,63 @@
+[
+  {
+    "name": "move_to",
+    "description": "Move to absolute Cartesian palm targets and finger closures (meters for positions, radians for rotations, 0-1 for fingers, per the dimension labels). The motion is a straight line interpolated at a fixed safe speed and the result reports its step count. Unnamed dimensions hold their current value. Coordinates are absolute in the embodiment's torso frame. Rotation dimensions are absolute targets measured relative to the orientation at the start of the task (0 means that orientation) and interpolate linearly without wrapping, so prefer intermediate values for large rotations. Per-dimension bounds: left_x: [0.0, 0.62], left_y: [-0.25, 0.55], left_z: [-0.45, 0.45], left_yaw: [-1.571, 1.571], left_pitch: [-1.571, 1.571], left_roll: [-1.571, 1.571], left_thumb: [0, 1], left_index: [0, 1], left_middle: [0, 1], left_ring: [0, 1], left_little: [0, 1], right_x: [0.0, 0.62], right_y: [-0.55, 0.25], right_z: [-0.45, 0.45], right_yaw: [-1.571, 1.571], right_pitch: [-1.571, 1.571], right_roll: [-1.571, 1.571], right_thumb: [0, 1], right_index: [0, 1], right_middle: [0, 1], right_ring: [0, 1], right_little: [0, 1].",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "note": {
+          "type": "string",
+          "description": "One or two plain sentences for the human operator watching the robot: describe the scene as it currently looks (images, if any, and state) and state the goal of this motion. Shown live and in the saved transcript."
+        },
+        "targets": {
+          "type": "object",
+          "description": "Map of dimension name to value. Valid names: left_x, left_y, left_z, left_yaw, left_pitch, left_roll, left_thumb, left_index, left_middle, left_ring, left_little, right_x, right_y, right_z, right_yaw, right_pitch, right_roll, right_thumb, right_index, right_middle, right_ring, right_little"
+        }
+      },
+      "required": [
+        "targets",
+        "note"
+      ]
+    }
+  },
+  {
+    "name": "done",
+    "description": "Declare the task finished. Control returns to the operator.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "hindsight": {
+          "type": "string",
+          "description": "What do you know now that you wish you had known at the start of this task? Concrete facts about this robot or task (camera mounting, arm and hand geometry, controller behavior, metric scale), written as notes for the next time this robot does a similar task. Say 'none' if nothing qualifies."
+        },
+        "summary": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "summary",
+        "hindsight"
+      ]
+    }
+  },
+  {
+    "name": "give_up",
+    "description": "Stop trying; the task cannot be completed. Control returns to the operator.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "hindsight": {
+          "type": "string",
+          "description": "What do you know now that you wish you had known at the start of this task? Concrete facts about this robot or task (camera mounting, arm and hand geometry, controller behavior, metric scale), written as notes for the next time this robot does a similar task. Say 'none' if nothing qualifies."
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "reason",
+        "hindsight"
+      ]
+    }
+  }
+]
